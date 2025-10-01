@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -21,15 +30,34 @@ const Auth = () => {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    // TODO: Implementar autenticação com Supabase
-    setTimeout(() => {
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao Sistema de Gestão de Alunos.",
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      navigate("/dashboard");
+
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo ao Sistema de Gestão de Alunos.",
+        });
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no login",
+        description: "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -42,6 +70,7 @@ const Auth = () => {
     const matricula = formData.get("matricula") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
+    const dataNascimento = formData.get("dataNascimento") as string;
 
     if (password !== confirmPassword) {
       toast({
@@ -53,14 +82,51 @@ const Auth = () => {
       return;
     }
 
-    // TODO: Implementar cadastro com Supabase
-    setTimeout(() => {
+    if (matricula.length !== 10) {
       toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Você já pode fazer login no sistema.",
+        title: "Erro no cadastro",
+        description: "A matrícula deve ter exatamente 10 caracteres.",
+        variant: "destructive",
       });
       setIsLoading(false);
-    }, 1000);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            nome_completo: nome,
+            matricula: matricula,
+            data_nascimento: dataNascimento,
+          },
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no cadastro",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Verifique seu e-mail para confirmar o cadastro.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no cadastro",
+        description: "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -143,11 +209,21 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                  <Input
+                    id="dataNascimento"
+                    name="dataNascimento"
+                    type="date"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>
                   <Input
                     id="signup-password"
                     name="password"
                     type="password"
+                    minLength={6}
                     required
                   />
                 </div>
@@ -157,6 +233,7 @@ const Auth = () => {
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
+                    minLength={6}
                     required
                   />
                 </div>

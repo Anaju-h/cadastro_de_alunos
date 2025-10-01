@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Plus, Search, Edit, Trash2, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type StudentStatus = "Ativo" | "Inativo" | "Trancado" | "Formado";
 
@@ -38,8 +40,15 @@ interface Student {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
 
   // Mock data - será substituído por dados reais do Supabase
   const [students] = useState<Student[]>([
@@ -75,7 +84,8 @@ const Dashboard = () => {
     },
   ]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     toast({
       title: "Logout realizado",
       description: "Até logo!",
